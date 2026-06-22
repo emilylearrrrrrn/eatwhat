@@ -293,7 +293,9 @@ function renderRatingButtons() {
   for (let value = 1; value <= 5; value += 1) {
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = ratingText(value);
+    button.textContent = `${value}★`;
+    button.setAttribute("aria-label", `${value}星`);
+    button.title = ratingText(value);
     button.classList.toggle("active", value === currentRating);
     button.addEventListener("click", () => {
       currentRating = value;
