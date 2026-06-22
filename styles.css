@@ -744,6 +744,68 @@ form.modal-card {
   gap: 12px;
 }
 
+.menu-picker-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(58svh, 520px);
+  overflow-y: auto;
+  padding-right: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.menu-picker-item {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+  min-height: 74px;
+  border: 1px solid rgba(90, 52, 31, 0.14);
+  border-radius: 18px;
+  padding: 8px;
+  background: var(--card);
+  color: var(--ink);
+  text-align: left;
+}
+
+.menu-picker-item.active {
+  border-color: rgba(255, 111, 26, 0.78);
+  box-shadow: 0 0 0 3px rgba(255, 111, 26, 0.12);
+}
+
+.menu-picker-photo {
+  width: 58px;
+  height: 58px;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: none;
+}
+
+.menu-picker-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.menu-picker-body strong,
+.menu-picker-body small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-picker-body strong {
+  color: var(--brown);
+  font-size: 0.96rem;
+}
+
+.menu-picker-body small {
+  color: var(--brown-soft);
+  font-size: 0.8rem;
+}
+
 .import-label {
   position: relative;
   display: grid;

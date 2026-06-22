@@ -209,6 +209,21 @@
       </article>
     </dialog>
 
+    <dialog class="modal" id="menuPickerDialog">
+      <article class="modal-card">
+        <div class="modal-header">
+          <h2 id="menuPickerTitle">安排菜单</h2>
+          <button class="icon-button" type="button" data-close-menu-picker aria-label="关闭">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+          </button>
+        </div>
+        <div class="menu-picker-list" id="menuPickerList"></div>
+        <div class="modal-actions">
+          <button class="danger-button" id="clearMenuDay" type="button">清空当天</button>
+        </div>
+      </article>
+    </dialog>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="./app.js" type="module"></script>

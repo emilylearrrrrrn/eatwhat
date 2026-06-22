@@ -11,6 +11,7 @@ let currentRating = 4;
 let photoDataUrl = "";
 let selectedDishId = null;
 let lastPickId = null;
+let selectedMenuIndex = null;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -52,6 +53,10 @@ const els = {
   toast: $("#toast"),
   settingsDialog: $("#settingsDialog"),
   importData: $("#importData"),
+  menuPickerDialog: $("#menuPickerDialog"),
+  menuPickerTitle: $("#menuPickerTitle"),
+  menuPickerList: $("#menuPickerList"),
+  clearMenuDay: $("#clearMenuDay"),
 };
 
 function openDb() {
@@ -242,11 +247,11 @@ function renderMenu() {
         <h3></h3>
         <p></p>
       </div>
-      <button class="tiny-button" type="button">替换</button>
+      <button class="tiny-button" type="button">安排</button>
     `;
     row.querySelector("h3").textContent = dish?.name ?? "待安排";
-    row.querySelector("p").textContent = dish?.ingredients ?? "生成菜单后会显示菜品";
-    row.querySelector("button").addEventListener("click", () => replaceMenuDay(index));
+    row.querySelector("p").textContent = dish?.ingredients ?? "点安排手动选择，或点生成自动排一周";
+    row.querySelector("button").addEventListener("click", () => openMenuPicker(index));
     els.weekList.append(row);
   });
 }
@@ -459,6 +464,66 @@ async function replaceMenuDay(index) {
   showToast(`${WEEK_DAYS[index]}已替换`);
 }
 
+function openMenuPicker(index) {
+  if (!dishes.length) {
+    showToast("先添加几道菜");
+    return;
+  }
+
+  selectedMenuIndex = index;
+  els.menuPickerTitle.textContent = `安排${WEEK_DAYS[index]}`;
+  renderMenuPickerOptions();
+  els.menuPickerDialog.showModal();
+}
+
+function renderMenuPickerOptions() {
+  els.menuPickerList.innerHTML = "";
+  const currentDishId = selectedMenuIndex === null ? null : currentMenu[selectedMenuIndex];
+
+  dishes.forEach((dish) => {
+    const button = document.createElement("button");
+    button.className = "menu-picker-item";
+    button.type = "button";
+    button.classList.toggle("active", dish.id === currentDishId);
+    button.append(dishImage(dish, "menu-picker-photo"));
+
+    const body = document.createElement("span");
+    body.className = "menu-picker-body";
+    body.innerHTML = `
+      <strong></strong>
+      <small></small>
+    `;
+    body.querySelector("strong").textContent = dish.name;
+    body.querySelector("small").textContent = dish.ingredients || ratingText(dish.rating);
+    button.append(body);
+
+    button.addEventListener("click", () => setMenuDay(dish.id));
+    els.menuPickerList.append(button);
+  });
+}
+
+async function setMenuDay(dishId) {
+  if (selectedMenuIndex === null) return;
+  currentMenu = currentMenu.length ? [...currentMenu] : Array(7).fill(null);
+  currentMenu[selectedMenuIndex] = dishId;
+  await saveCurrentMenu();
+  renderAll();
+  closeDialog(els.menuPickerDialog);
+  showToast(`${WEEK_DAYS[selectedMenuIndex]}已安排`);
+  selectedMenuIndex = null;
+}
+
+async function clearMenuDay() {
+  if (selectedMenuIndex === null) return;
+  currentMenu = currentMenu.length ? [...currentMenu] : Array(7).fill(null);
+  currentMenu[selectedMenuIndex] = null;
+  await saveCurrentMenu();
+  renderAll();
+  closeDialog(els.menuPickerDialog);
+  showToast("已清空当天");
+  selectedMenuIndex = null;
+}
+
 function exportData() {
   const payload = {
     exportedAt: new Date().toISOString(),
@@ -501,6 +566,7 @@ function bindEvents() {
   $("#generateMenu").addEventListener("click", generateMenu);
   $("#settingsButton").addEventListener("click", () => els.settingsDialog.showModal());
   $("#exportData").addEventListener("click", exportData);
+  els.clearMenuDay.addEventListener("click", clearMenuDay);
 
   els.searchInput.addEventListener("input", renderLibrary);
   els.dishForm.addEventListener("submit", saveDish);
@@ -534,6 +600,7 @@ function bindEvents() {
   $$("[data-close-detail]").forEach((button) => button.addEventListener("click", () => closeDialog(els.detailDialog)));
   $$("[data-close-pick]").forEach((button) => button.addEventListener("click", () => closeDialog(els.pickDialog)));
   $$("[data-close-settings]").forEach((button) => button.addEventListener("click", () => closeDialog(els.settingsDialog)));
+  $$("[data-close-menu-picker]").forEach((button) => button.addEventListener("click", () => closeDialog(els.menuPickerDialog)));
 }
 
 async function registerServiceWorker() {
