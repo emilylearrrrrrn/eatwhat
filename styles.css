@@ -14,6 +14,7 @@
   --shadow-soft: 0 8px 22px rgba(104, 64, 34, 0.1);
   --danger: #c81e1e;
   --gold: #ffbd22;
+  --hero-image: url("./assets/hero-food.jpg");
   color-scheme: light;
   font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
@@ -154,7 +155,7 @@ svg {
   border-radius: 18px;
   background:
     linear-gradient(90deg, rgba(33, 19, 12, 0.72), rgba(33, 19, 12, 0.2) 55%, rgba(33, 19, 12, 0.04)),
-    url("./assets/hero-food.jpg") center / cover;
+    var(--hero-image) center / cover;
   box-shadow: var(--shadow);
 }
 

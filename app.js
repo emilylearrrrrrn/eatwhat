@@ -1,12 +1,14 @@
 const DB_NAME = "cookbook-pwa-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const DISH_STORE = "dishes";
 const MENU_STORE = "menus";
+const SETTINGS_STORE = "settings";
 const WEEK_DAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
 let db;
 let dishes = [];
 let currentMenu = [];
+let appSettings = {};
 let currentRating = 4;
 let photoDataUrl = "";
 let selectedDishId = null;
@@ -53,6 +55,8 @@ const els = {
   toast: $("#toast"),
   settingsDialog: $("#settingsDialog"),
   importData: $("#importData"),
+  heroImageInput: $("#heroImageInput"),
+  resetHeroImage: $("#resetHeroImage"),
   menuPickerDialog: $("#menuPickerDialog"),
   menuPickerTitle: $("#menuPickerTitle"),
   menuPickerList: $("#menuPickerList"),
@@ -70,6 +74,9 @@ function openDb() {
       }
       if (!database.objectStoreNames.contains(MENU_STORE)) {
         database.createObjectStore(MENU_STORE, { keyPath: "id" });
+      }
+      if (!database.objectStoreNames.contains(SETTINGS_STORE)) {
+        database.createObjectStore(SETTINGS_STORE, { keyPath: "id" });
       }
     };
 
@@ -118,6 +125,9 @@ async function loadState() {
   dishes = (await getAll(DISH_STORE)).sort((a, b) => b.updatedAt - a.updatedAt);
   const menuRows = await getAll(MENU_STORE);
   currentMenu = menuRows.find((row) => row.id === "current")?.items ?? [];
+  const settingsRows = await getAll(SETTINGS_STORE);
+  appSettings = settingsRows.find((row) => row.id === "app") ?? { id: "app" };
+  applyHeroImage();
 }
 
 function formatDate(ts) {
@@ -132,6 +142,11 @@ function showToast(message) {
   els.toast.classList.add("show");
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(() => els.toast.classList.remove("show"), 2200);
+}
+
+function applyHeroImage() {
+  const image = appSettings.heroImage || "";
+  document.documentElement.style.setProperty("--hero-image", image ? `url("${image}")` : 'url("./assets/hero-food.jpg")');
 }
 
 function ratingText(rating) {
@@ -335,6 +350,17 @@ async function resizeImage(file) {
   return canvas.toDataURL("image/jpeg", 0.82);
 }
 
+async function saveSettings(nextSettings) {
+  appSettings = {
+    ...appSettings,
+    ...nextSettings,
+    id: "app",
+    updatedAt: Date.now(),
+  };
+  await put(SETTINGS_STORE, appSettings);
+  applyHeroImage();
+}
+
 async function saveDish(event) {
   event.preventDefault();
   const now = Date.now();
@@ -533,6 +559,7 @@ function exportData() {
     photoCount,
     dishes: dishes.map((dish) => ({ ...dish })),
     menu: currentMenu,
+    settings: { ...appSettings },
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -551,11 +578,15 @@ async function importData(file) {
   if (!Array.isArray(payload.dishes)) throw new Error("Invalid backup");
   await clearStore(DISH_STORE);
   await clearStore(MENU_STORE);
+  await clearStore(SETTINGS_STORE);
   for (const dish of payload.dishes) {
     await put(DISH_STORE, dish);
   }
   currentMenu = Array.isArray(payload.menu) ? payload.menu : [];
   await saveCurrentMenu();
+  if (payload.settings && typeof payload.settings === "object") {
+    await saveSettings({ ...payload.settings, id: "app" });
+  }
   await loadState();
   renderAll();
   showToast("备份已导入");
@@ -571,6 +602,10 @@ function bindEvents() {
   $("#generateMenu").addEventListener("click", generateMenu);
   $("#settingsButton").addEventListener("click", () => els.settingsDialog.showModal());
   $("#exportData").addEventListener("click", exportData);
+  els.resetHeroImage.addEventListener("click", async () => {
+    await saveSettings({ heroImage: "" });
+    showToast("首页背景图已恢复默认");
+  });
   els.clearMenuDay.addEventListener("click", clearMenuDay);
 
   els.searchInput.addEventListener("input", renderLibrary);
@@ -599,6 +634,15 @@ function bindEvents() {
     } finally {
       event.target.value = "";
     }
+  });
+
+  els.heroImageInput.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const image = await resizeImage(file);
+    await saveSettings({ heroImage: image });
+    showToast("首页背景图已更换");
+    event.target.value = "";
   });
 
   $$("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => closeDialog(els.dishDialog)));
