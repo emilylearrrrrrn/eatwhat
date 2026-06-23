@@ -525,9 +525,13 @@ async function clearMenuDay() {
 }
 
 function exportData() {
+  const photoCount = dishes.filter((dish) => Boolean(dish.photo)).length;
   const payload = {
+    backupVersion: 2,
+    app: "今天做啥",
     exportedAt: new Date().toISOString(),
-    dishes,
+    photoCount,
+    dishes: dishes.map((dish) => ({ ...dish })),
     menu: currentMenu,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -537,6 +541,7 @@ function exportData() {
   anchor.download = `今天做啥-备份-${new Date().toISOString().slice(0, 10)}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
+  showToast(`已导出完整备份，包含${photoCount}张照片`);
 }
 
 async function importData(file) {
