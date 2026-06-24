@@ -1,4 +1,4 @@
-const CACHE_NAME = "cookbook-pwa-v12";
+const CACHE_NAME = "cookbook-pwa-v13";
 const ASSETS = [
   "./",
   "./index.html",

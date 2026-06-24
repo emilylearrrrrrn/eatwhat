@@ -15,6 +15,8 @@ let photoCrop = { x: 50, y: 50, zoom: 1 };
 let selectedDishId = null;
 let lastPickId = null;
 let selectedMenuIndex = null;
+let selectedMenuDishIds = [];
+let menuPickerCategory = "全部";
 let selectedCategory = "全部";
 let librarySortBy = "recent";
 let selectedDishTags = [];
@@ -78,8 +80,11 @@ const els = {
   resetHeroImage: $("#resetHeroImage"),
   menuPickerDialog: $("#menuPickerDialog"),
   menuPickerTitle: $("#menuPickerTitle"),
+  menuSearchInput: $("#menuSearchInput"),
+  menuCategoryList: $("#menuCategoryList"),
   menuPickerList: $("#menuPickerList"),
   clearMenuDay: $("#clearMenuDay"),
+  saveMenuDay: $("#saveMenuDay"),
 };
 
 function openDb() {
@@ -265,7 +270,7 @@ function dishCard(dish) {
 function renderHome() {
   els.dishCount.textContent = dishes.length;
   els.topRatedCount.textContent = dishes.filter((dish) => dish.rating >= 4).length;
-  els.menuCount.textContent = currentMenu.filter(Boolean).length;
+  els.menuCount.textContent = countMenuDays();
   els.recentList.innerHTML = "";
 
   if (!dishes.length) {
@@ -349,6 +354,19 @@ function getMenuDish(id) {
   return dishes.find((dish) => dish.id === id);
 }
 
+function getMenuDishIds(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return value ? [value] : [];
+}
+
+function getMenuDishes(value) {
+  return getMenuDishIds(value).map(getMenuDish).filter(Boolean);
+}
+
+function countMenuDays(menu = currentMenu) {
+  return menu.filter((item) => getMenuDishIds(item).length > 0).length;
+}
+
 function renderMenu() {
   els.weekList.innerHTML = "";
 
@@ -362,21 +380,40 @@ function renderMenu() {
     return;
   }
 
-  const items = currentMenu.length ? currentMenu : Array(7).fill(null);
-  items.forEach((dishId, index) => {
-    const dish = getMenuDish(dishId);
+  const items = Array.from({ length: 7 }, (_, index) => currentMenu[index] ?? []);
+  items.forEach((menuValue, index) => {
+    const menuDishes = getMenuDishes(menuValue);
     const row = document.createElement("article");
     row.className = "week-row";
     row.innerHTML = `
       <span class="week-day">${WEEK_DAYS[index]}</span>
-      <div>
+      <div class="week-content">
         <h3></h3>
-        <p></p>
+        <div class="week-dishes"></div>
       </div>
       <button class="tiny-button" type="button">安排</button>
     `;
-    row.querySelector("h3").textContent = dish?.name ?? "待安排";
-    row.querySelector("p").textContent = dish?.ingredients ?? "点安排手动选择，或点生成自动排一周";
+    row.querySelector("h3").textContent = menuDishes.length
+      ? menuDishes.map((dish) => dish.name).join("、")
+      : "待安排";
+    const dishList = row.querySelector(".week-dishes");
+    if (menuDishes.length) {
+      menuDishes.forEach((dish) => {
+        const item = document.createElement("button");
+        item.className = "week-dish-chip";
+        item.type = "button";
+        item.append(dishImage(dish, "week-dish-photo", { thumbnail: true }));
+        const name = document.createElement("span");
+        name.textContent = dish.name;
+        item.append(name);
+        item.addEventListener("click", () => openDetail(dish.id));
+        dishList.append(item);
+      });
+    } else {
+      const empty = document.createElement("p");
+      empty.textContent = "点安排手动选择，或点生成自动排一周";
+      dishList.append(empty);
+    }
     row.querySelector("button").addEventListener("click", () => openMenuPicker(index));
     els.weekList.append(row);
   });
@@ -554,7 +591,10 @@ async function saveDish(event) {
 async function deleteDish() {
   if (!selectedDishId) return;
   await remove(DISH_STORE, selectedDishId);
-  currentMenu = currentMenu.map((id) => (id === selectedDishId ? null : id));
+  currentMenu = currentMenu.map((value) => {
+    const remaining = getMenuDishIds(value).filter((id) => id !== selectedDishId);
+    return remaining;
+  });
   await saveCurrentMenu();
   await loadState();
   renderAll();
@@ -621,11 +661,11 @@ function buildWeeklyMenu() {
     const topSlice = available.slice(0, Math.min(4, available.length));
     const pick = topSlice[Math.floor(Math.random() * topSlice.length)];
     used.add(pick.id);
-    result.push(pick.id);
+    result.push([pick.id]);
   }
 
   while (result.length < 7) {
-    result.push(sorted[result.length % sorted.length].id);
+    result.push([sorted[result.length % sorted.length].id]);
   }
 
   return result;
@@ -652,12 +692,12 @@ async function generateMenu() {
 
 async function replaceMenuDay(index) {
   if (!dishes.length) return;
-  const used = new Set(currentMenu.filter(Boolean));
-  used.delete(currentMenu[index]);
+  const used = new Set(currentMenu.flatMap(getMenuDishIds));
+  getMenuDishIds(currentMenu[index]).forEach((id) => used.delete(id));
   const available = dishes.filter((dish) => !used.has(dish.id));
-  const dish = available[Math.floor(Math.random() * available.length)] ?? chooseRandomDish(currentMenu[index]);
-  currentMenu = currentMenu.length ? [...currentMenu] : Array(7).fill(null);
-  currentMenu[index] = dish.id;
+  const dish = available[Math.floor(Math.random() * available.length)] ?? chooseRandomDish(getMenuDishIds(currentMenu[index])[0]);
+  currentMenu = currentMenu.length ? [...currentMenu] : Array(7).fill([]);
+  currentMenu[index] = [dish.id];
   await saveCurrentMenu();
   renderAll();
   showToast(`${WEEK_DAYS[index]}已替换`);
@@ -670,20 +710,60 @@ function openMenuPicker(index) {
   }
 
   selectedMenuIndex = index;
+  selectedMenuDishIds = getMenuDishIds(currentMenu[index]);
+  menuPickerCategory = "全部";
+  els.menuSearchInput.value = "";
   els.menuPickerTitle.textContent = `安排${WEEK_DAYS[index]}`;
+  renderMenuPickerCategories();
   renderMenuPickerOptions();
   els.menuPickerDialog.showModal();
 }
 
+function renderMenuPickerCategories() {
+  els.menuCategoryList.innerHTML = "";
+  const categories = getAllCategories();
+  if (!categories.includes(menuPickerCategory)) menuPickerCategory = "全部";
+
+  categories.forEach((category) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "menu-category-button";
+    button.classList.toggle("active", category === menuPickerCategory);
+    button.textContent = category;
+    button.addEventListener("click", () => {
+      menuPickerCategory = category;
+      renderMenuPickerCategories();
+      renderMenuPickerOptions();
+    });
+    els.menuCategoryList.append(button);
+  });
+}
+
 function renderMenuPickerOptions() {
   els.menuPickerList.innerHTML = "";
-  const currentDishId = selectedMenuIndex === null ? null : currentMenu[selectedMenuIndex];
+  const query = els.menuSearchInput.value.trim().toLowerCase();
+  const filtered = dishes.filter((dish) => {
+    const tags = Array.isArray(dish.tags) ? dish.tags : [];
+    const categoryMatch = menuPickerCategory === "全部" || tags.includes(menuPickerCategory);
+    const haystack = `${dish.name} ${dish.ingredients} ${dish.notes} ${tags.join(" ")}`.toLowerCase();
+    return categoryMatch && haystack.includes(query);
+  });
 
-  dishes.forEach((dish) => {
+  if (!filtered.length) {
+    els.menuPickerList.innerHTML = `
+      <article class="empty-state">
+        <h3>没找到这道菜</h3>
+        <p>换个关键词或分类试试。</p>
+      </article>
+    `;
+    return;
+  }
+
+  filtered.forEach((dish) => {
     const button = document.createElement("button");
     button.className = "menu-picker-item";
     button.type = "button";
-    button.classList.toggle("active", dish.id === currentDishId);
+    button.classList.toggle("active", selectedMenuDishIds.includes(dish.id));
     button.append(dishImage(dish, "menu-picker-photo", { thumbnail: true }));
 
     const body = document.createElement("span");
@@ -693,34 +773,45 @@ function renderMenuPickerOptions() {
       <small></small>
     `;
     body.querySelector("strong").textContent = dish.name;
-    body.querySelector("small").textContent = dish.ingredients || ratingText(dish.rating);
+    body.querySelector("small").textContent = Array.isArray(dish.tags) && dish.tags.length
+      ? `${dish.tags.join(" / ")} · ${ratingScoreText(dish.rating)}`
+      : ratingScoreText(dish.rating);
     button.append(body);
 
-    button.addEventListener("click", () => setMenuDay(dish.id));
+    button.addEventListener("click", () => toggleMenuDish(dish.id));
     els.menuPickerList.append(button);
   });
 }
 
-async function setMenuDay(dishId) {
+function toggleMenuDish(dishId) {
+  selectedMenuDishIds = selectedMenuDishIds.includes(dishId)
+    ? selectedMenuDishIds.filter((id) => id !== dishId)
+    : [...selectedMenuDishIds, dishId];
+  renderMenuPickerOptions();
+}
+
+async function saveMenuDay() {
   if (selectedMenuIndex === null) return;
-  currentMenu = currentMenu.length ? [...currentMenu] : Array(7).fill(null);
-  currentMenu[selectedMenuIndex] = dishId;
+  currentMenu = currentMenu.length ? [...currentMenu] : Array(7).fill([]);
+  currentMenu[selectedMenuIndex] = [...selectedMenuDishIds];
   await saveCurrentMenu();
   renderAll();
   closeDialog(els.menuPickerDialog);
   showToast(`${WEEK_DAYS[selectedMenuIndex]}已安排`);
   selectedMenuIndex = null;
+  selectedMenuDishIds = [];
 }
 
 async function clearMenuDay() {
   if (selectedMenuIndex === null) return;
-  currentMenu = currentMenu.length ? [...currentMenu] : Array(7).fill(null);
-  currentMenu[selectedMenuIndex] = null;
+  currentMenu = currentMenu.length ? [...currentMenu] : Array(7).fill([]);
+  currentMenu[selectedMenuIndex] = [];
   await saveCurrentMenu();
   renderAll();
   closeDialog(els.menuPickerDialog);
   showToast("已清空当天");
   selectedMenuIndex = null;
+  selectedMenuDishIds = [];
 }
 
 function exportData() {
@@ -804,6 +895,8 @@ function bindEvents() {
     await saveSettings({ heroImage: "" });
     showToast("首页背景图已恢复默认");
   });
+  els.menuSearchInput.addEventListener("input", renderMenuPickerOptions);
+  els.saveMenuDay.addEventListener("click", saveMenuDay);
   els.clearMenuDay.addEventListener("click", clearMenuDay);
 
   els.searchInput.addEventListener("input", renderLibrary);
@@ -852,7 +945,11 @@ function bindEvents() {
   $$("[data-close-detail]").forEach((button) => button.addEventListener("click", () => closeDialog(els.detailDialog)));
   $$("[data-close-pick]").forEach((button) => button.addEventListener("click", () => closeDialog(els.pickDialog)));
   $$("[data-close-settings]").forEach((button) => button.addEventListener("click", () => closeDialog(els.settingsDialog)));
-  $$("[data-close-menu-picker]").forEach((button) => button.addEventListener("click", () => closeDialog(els.menuPickerDialog)));
+  $$("[data-close-menu-picker]").forEach((button) => button.addEventListener("click", () => {
+    selectedMenuIndex = null;
+    selectedMenuDishIds = [];
+    closeDialog(els.menuPickerDialog);
+  }));
   $$("[data-close-original-photo]").forEach((button) => button.addEventListener("click", () => closeDialog(els.originalPhotoDialog)));
 }
 

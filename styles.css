@@ -621,9 +621,9 @@ svg {
 .week-row {
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   gap: 12px;
-  min-height: 78px;
+  min-height: 92px;
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -650,13 +650,58 @@ svg {
   white-space: nowrap;
 }
 
-.week-row p {
+.week-dishes {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 2px 0 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.week-dishes::-webkit-scrollbar {
+  display: none;
+}
+
+.week-dishes p {
   overflow: hidden;
   margin: 0;
   color: var(--brown-soft);
   font-size: 0.86rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.week-dish-chip {
+  display: grid;
+  grid-template-columns: 38px auto;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  max-width: 138px;
+  min-height: 42px;
+  border: 1px solid rgba(90, 52, 31, 0.1);
+  border-radius: 999px;
+  padding: 3px 10px 3px 3px;
+  background: rgba(255, 247, 236, 0.88);
+  color: var(--brown);
+  font-size: 0.78rem;
+  font-weight: 820;
+}
+
+.week-dish-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week-dish-photo {
+  width: 38px;
+  height: 38px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  box-shadow: none;
 }
 
 .tiny-button {
@@ -1107,9 +1152,45 @@ form.modal-card {
   -webkit-overflow-scrolling: touch;
 }
 
+.menu-picker-search {
+  min-height: 46px;
+  margin-bottom: 10px;
+}
+
+.menu-category-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-bottom: 12px;
+  padding: 0 0 3px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.menu-category-list::-webkit-scrollbar {
+  display: none;
+}
+
+.menu-category-button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  border: 1px solid rgba(90, 52, 31, 0.14);
+  border-radius: 999px;
+  padding: 0 13px;
+  background: var(--card);
+  color: var(--brown-soft);
+  font-weight: 820;
+}
+
+.menu-category-button.active {
+  border-color: rgba(255, 111, 26, 0.62);
+  background: rgba(255, 111, 26, 0.12);
+  color: var(--primary-dark);
+}
+
 .menu-picker-item {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-columns: 58px minmax(0, 1fr) 26px;
   align-items: center;
   gap: 12px;
   min-width: 0;
@@ -1125,7 +1206,27 @@ form.modal-card {
 
 .menu-picker-item.active {
   border-color: rgba(255, 111, 26, 0.78);
+  background: rgba(255, 111, 26, 0.08);
   box-shadow: 0 0 0 3px rgba(255, 111, 26, 0.12);
+}
+
+.menu-picker-item::after {
+  content: "";
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(90, 52, 31, 0.2);
+  border-radius: 999px;
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.menu-picker-item.active::after {
+  content: "✓";
+  border-color: var(--primary);
+  background: var(--primary);
 }
 
 .menu-picker-photo {
