@@ -134,6 +134,20 @@
           <img id="photoPreview" alt="" />
           <span id="photoHint">选择照片</span>
         </label>
+        <div class="photo-adjuster hidden" id="photoAdjuster">
+          <label>
+            <span>左右</span>
+            <input id="photoCropX" type="range" min="0" max="100" value="50" />
+          </label>
+          <label>
+            <span>上下</span>
+            <input id="photoCropY" type="range" min="0" max="100" value="50" />
+          </label>
+          <label>
+            <span>放大</span>
+            <input id="photoZoom" type="range" min="100" max="220" value="100" />
+          </label>
+        </div>
 
         <label class="field">
           <span>菜名</span>
@@ -179,7 +193,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
           </button>
         </div>
-        <img class="detail-photo" id="detailPhoto" alt="" />
+        <button class="detail-photo-button" id="detailPhotoButton" type="button">
+          <img class="detail-photo" id="detailPhoto" alt="" />
+          <span>查看原图</span>
+        </button>
         <div class="detail-meta">
           <span id="detailRating"></span>
           <span id="detailDate"></span>
@@ -193,6 +210,18 @@
           <p id="detailNotes"></p>
         </div>
         <button class="primary-action" id="editFromDetail" type="button">编辑</button>
+      </article>
+    </dialog>
+
+    <dialog class="modal" id="originalPhotoDialog">
+      <article class="modal-card original-photo-card">
+        <div class="modal-header">
+          <h2>原图</h2>
+          <button class="icon-button" type="button" data-close-original-photo aria-label="关闭">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+          </button>
+        </div>
+        <img id="originalPhotoImage" alt="" />
       </article>
     </dialog>
 

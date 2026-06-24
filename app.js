@@ -11,6 +11,7 @@ let currentMenu = [];
 let appSettings = {};
 let currentRating = 4;
 let photoDataUrl = "";
+let photoCrop = { x: 50, y: 50, zoom: 1 };
 let selectedDishId = null;
 let lastPickId = null;
 let selectedMenuIndex = null;
@@ -46,6 +47,10 @@ const els = {
   photoPicker: $("#photoPicker"),
   photoPreview: $("#photoPreview"),
   photoHint: $("#photoHint"),
+  photoAdjuster: $("#photoAdjuster"),
+  photoCropX: $("#photoCropX"),
+  photoCropY: $("#photoCropY"),
+  photoZoom: $("#photoZoom"),
   ratingButtons: $("#ratingButtons"),
   tagButtons: $("#tagButtons"),
   tagInput: $("#tagInput"),
@@ -53,6 +58,7 @@ const els = {
   deleteDish: $("#deleteDish"),
   detailDialog: $("#detailDialog"),
   detailName: $("#detailName"),
+  detailPhotoButton: $("#detailPhotoButton"),
   detailPhoto: $("#detailPhoto"),
   detailRating: $("#detailRating"),
   detailDate: $("#detailDate"),
@@ -63,6 +69,8 @@ const els = {
   pickPhoto: $("#pickPhoto"),
   pickName: $("#pickName"),
   pickIngredients: $("#pickIngredients"),
+  originalPhotoDialog: $("#originalPhotoDialog"),
+  originalPhotoImage: $("#originalPhotoImage"),
   toast: $("#toast"),
   settingsDialog: $("#settingsDialog"),
   importData: $("#importData"),
@@ -199,8 +207,35 @@ function placeholder(name, className = "") {
   return node;
 }
 
-function dishImage(dish, className = "") {
+function getPhotoCrop(dish = {}) {
+  return {
+    x: Number.isFinite(Number(dish.photoX)) ? Number(dish.photoX) : 50,
+    y: Number.isFinite(Number(dish.photoY)) ? Number(dish.photoY) : 50,
+    zoom: Number.isFinite(Number(dish.photoZoom)) ? Number(dish.photoZoom) : 1,
+  };
+}
+
+function applyPhotoCrop(node, crop = photoCrop) {
+  const x = Math.min(100, Math.max(0, Number(crop.x) || 50));
+  const y = Math.min(100, Math.max(0, Number(crop.y) || 50));
+  const zoom = Math.min(2.2, Math.max(1, Number(crop.zoom) || 1));
+  node.style.setProperty("--photo-x", `${x}%`);
+  node.style.setProperty("--photo-y", `${y}%`);
+  node.style.setProperty("--photo-zoom", zoom);
+}
+
+function dishImage(dish, className = "", options = {}) {
   if (!dish.photo) return placeholder(dish.name, className);
+  if (options.thumbnail) {
+    const frame = document.createElement("div");
+    frame.className = `photo-frame ${className}`.trim();
+    const img = document.createElement("img");
+    img.src = dish.photo;
+    img.alt = dish.name;
+    applyPhotoCrop(img, getPhotoCrop(dish));
+    frame.append(img);
+    return frame;
+  }
   const img = document.createElement("img");
   img.src = dish.photo;
   img.alt = dish.name;
@@ -212,21 +247,14 @@ function dishCard(dish) {
   const button = document.createElement("button");
   button.className = "dish-card";
   button.type = "button";
-  button.append(dishImage(dish));
+  button.append(dishImage(dish, "", { thumbnail: true }));
 
   const body = document.createElement("div");
   body.className = "dish-card-body";
   body.innerHTML = `
-    <span class="dish-tag-badge"></span>
     <h3></h3>
-    <p></p>
-    <span class="rating-text"></span>
   `;
   body.querySelector("h3").textContent = dish.name;
-  const tags = Array.isArray(dish.tags) ? dish.tags.filter(Boolean) : [];
-  body.querySelector(".dish-tag-badge").textContent = tags[0] || "未分类";
-  body.querySelector("p").textContent = `食材：${dish.ingredients || "还没有记录食材"}`;
-  body.querySelector(".rating-text").textContent = ratingScoreText(dish.rating);
   button.append(body);
   button.addEventListener("click", () => openDetail(dish.id));
   return button;
@@ -367,6 +395,7 @@ function openDishForm(dish = null) {
   selectedDishId = dish?.id ?? null;
   currentRating = dish?.rating ?? 4;
   photoDataUrl = dish?.photo ?? "";
+  photoCrop = getPhotoCrop(dish);
   selectedDishTags = Array.isArray(dish?.tags) ? [...dish.tags] : [];
   els.dishFormTitle.textContent = dish ? "编辑菜品" : "添加菜品";
   els.dishId.value = dish?.id ?? "";
@@ -387,8 +416,22 @@ function closeDialog(dialog) {
 
 function updatePhotoPreview() {
   els.photoPicker.classList.toggle("has-photo", Boolean(photoDataUrl));
+  els.photoAdjuster.classList.toggle("hidden", !photoDataUrl);
   els.photoPreview.src = photoDataUrl || "";
+  applyPhotoCrop(els.photoPreview, photoCrop);
+  els.photoCropX.value = Math.round(photoCrop.x);
+  els.photoCropY.value = Math.round(photoCrop.y);
+  els.photoZoom.value = Math.round(photoCrop.zoom * 100);
   els.photoHint.textContent = photoDataUrl ? "更换照片" : "选择照片";
+}
+
+function updatePhotoCropFromControls() {
+  photoCrop = {
+    x: Number(els.photoCropX.value),
+    y: Number(els.photoCropY.value),
+    zoom: Number(els.photoZoom.value) / 100,
+  };
+  applyPhotoCrop(els.photoPreview, photoCrop);
 }
 
 function renderRatingButtons() {
@@ -482,6 +525,9 @@ async function saveDish(event) {
     notes: els.notesInput.value.trim(),
     rating: currentRating,
     photo: photoDataUrl,
+    photoX: photoCrop.x,
+    photoY: photoCrop.y,
+    photoZoom: photoCrop.zoom,
     tags: [...selectedDishTags],
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
@@ -526,7 +572,17 @@ function openDetail(id) {
   els.detailNotes.textContent = dish.notes || "还没有备注";
   els.detailPhoto.replaceWith(dishImage(dish, "detail-photo"));
   els.detailPhoto = $(".detail-photo");
+  els.detailPhotoButton.classList.toggle("has-photo", Boolean(dish.photo));
+  els.detailPhotoButton.disabled = !dish.photo;
   els.detailDialog.showModal();
+}
+
+function openOriginalPhoto() {
+  const dish = dishes.find((item) => item.id === selectedDishId);
+  if (!dish?.photo) return;
+  els.originalPhotoImage.src = dish.photo;
+  els.originalPhotoImage.alt = dish.name;
+  els.originalPhotoDialog.showModal();
 }
 
 function chooseRandomDish(excludeId = null) {
@@ -626,7 +682,7 @@ function renderMenuPickerOptions() {
     button.className = "menu-picker-item";
     button.type = "button";
     button.classList.toggle("active", dish.id === currentDishId);
-    button.append(dishImage(dish, "menu-picker-photo"));
+    button.append(dishImage(dish, "menu-picker-photo", { thumbnail: true }));
 
     const body = document.createElement("span");
     body.className = "menu-picker-body";
@@ -751,6 +807,10 @@ function bindEvents() {
   els.searchInput.addEventListener("input", renderLibrary);
   els.dishForm.addEventListener("submit", saveDish);
   els.deleteDish.addEventListener("click", deleteDish);
+  [els.photoCropX, els.photoCropY, els.photoZoom].forEach((input) => {
+    input.addEventListener("input", updatePhotoCropFromControls);
+  });
+  els.detailPhotoButton.addEventListener("click", openOriginalPhoto);
   els.editFromDetail.addEventListener("click", () => {
     const dish = dishes.find((item) => item.id === selectedDishId);
     closeDialog(els.detailDialog);
@@ -761,6 +821,7 @@ function bindEvents() {
     const file = event.target.files?.[0];
     if (!file) return;
     photoDataUrl = await resizeImage(file);
+    photoCrop = { x: 50, y: 50, zoom: 1 };
     updatePhotoPreview();
     event.target.value = "";
   });
@@ -790,6 +851,7 @@ function bindEvents() {
   $$("[data-close-pick]").forEach((button) => button.addEventListener("click", () => closeDialog(els.pickDialog)));
   $$("[data-close-settings]").forEach((button) => button.addEventListener("click", () => closeDialog(els.settingsDialog)));
   $$("[data-close-menu-picker]").forEach((button) => button.addEventListener("click", () => closeDialog(els.menuPickerDialog)));
+  $$("[data-close-original-photo]").forEach((button) => button.addEventListener("click", () => closeDialog(els.originalPhotoDialog)));
 }
 
 async function registerServiceWorker() {
