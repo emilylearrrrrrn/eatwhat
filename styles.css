@@ -470,6 +470,8 @@ svg {
 .category-button {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   min-height: 58px;
   width: 100%;
   border: 0;
@@ -498,7 +500,24 @@ svg {
 }
 
 .category-button small {
-  display: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(90, 52, 31, 0.08);
+  color: rgba(90, 52, 31, 0.68);
+  font-size: 0.7rem;
+  font-weight: 850;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.category-button.active small {
+  background: rgba(255, 111, 26, 0.14);
+  color: var(--primary-dark);
 }
 
 .category-add {
@@ -584,6 +603,14 @@ svg {
   -webkit-line-clamp: 2;
   white-space: normal;
   word-break: break-word;
+}
+
+.library-content .rating-text {
+  position: static;
+  width: fit-content;
+  min-height: 22px;
+  padding: 0 8px;
+  font-size: 0.78rem;
 }
 
 .week-list {

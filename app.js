@@ -253,8 +253,10 @@ function dishCard(dish) {
   body.className = "dish-card-body";
   body.innerHTML = `
     <h3></h3>
+    <span class="rating-text"></span>
   `;
   body.querySelector("h3").textContent = dish.name;
+  body.querySelector(".rating-text").textContent = ratingScoreText(dish.rating);
   button.append(body);
   button.addEventListener("click", () => openDetail(dish.id));
   return button;
