@@ -66,14 +66,29 @@
             <h2 id="libraryTitle">菜品库</h2>
             <button class="small-action" id="openAddDish" type="button">添加</button>
           </div>
-          <label class="search-field">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="m21 21-4.35-4.35" />
-              <circle cx="11" cy="11" r="7" />
-            </svg>
-            <input id="searchInput" type="search" placeholder="搜索菜名或食材" autocomplete="off" />
-          </label>
-          <div class="dish-grid" id="dishGrid"></div>
+          <div class="library-shell">
+            <aside class="category-sidebar">
+              <div class="category-list" id="categoryList"></div>
+              <label class="category-add">
+                <input id="newCategoryInput" maxlength="12" placeholder="新分类" />
+                <button id="addCategoryButton" type="button">+</button>
+              </label>
+            </aside>
+            <div class="library-content">
+              <label class="search-field">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m21 21-4.35-4.35" />
+                  <circle cx="11" cy="11" r="7" />
+                </svg>
+                <input id="searchInput" type="search" placeholder="搜索菜名或食材" autocomplete="off" />
+              </label>
+              <div class="library-sortbar">
+                <button class="sort-button active" id="sortRecentButton" type="button">最近添加</button>
+                <button class="sort-button" id="sortRatingButton" type="button">评分降序</button>
+              </div>
+              <div class="dish-grid" id="dishGrid"></div>
+            </div>
+          </div>
         </section>
 
         <section class="view" id="view-menu" aria-labelledby="menuTitle">
@@ -133,6 +148,15 @@
         <fieldset class="rating-field">
           <legend>评分</legend>
           <div class="rating-buttons" id="ratingButtons"></div>
+        </fieldset>
+
+        <fieldset class="tag-field">
+          <legend>分类</legend>
+          <div class="tag-buttons" id="tagButtons"></div>
+          <label class="tag-add">
+            <input id="tagInput" maxlength="12" placeholder="新增分类，比如 荤菜" />
+            <button id="addTagButton" type="button">添加</button>
+          </label>
         </fieldset>
 
         <label class="field">

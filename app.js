@@ -14,6 +14,9 @@ let photoDataUrl = "";
 let selectedDishId = null;
 let lastPickId = null;
 let selectedMenuIndex = null;
+let selectedCategory = "全部";
+let librarySortBy = "recent";
+let selectedDishTags = [];
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -27,6 +30,11 @@ const els = {
   dishGrid: $("#dishGrid"),
   weekList: $("#weekList"),
   searchInput: $("#searchInput"),
+  categoryList: $("#categoryList"),
+  newCategoryInput: $("#newCategoryInput"),
+  addCategoryButton: $("#addCategoryButton"),
+  sortRecentButton: $("#sortRecentButton"),
+  sortRatingButton: $("#sortRatingButton"),
   dishDialog: $("#dishDialog"),
   dishForm: $("#dishForm"),
   dishFormTitle: $("#dishFormTitle"),
@@ -39,6 +47,9 @@ const els = {
   photoPreview: $("#photoPreview"),
   photoHint: $("#photoHint"),
   ratingButtons: $("#ratingButtons"),
+  tagButtons: $("#tagButtons"),
+  tagInput: $("#tagInput"),
+  addTagButton: $("#addTagButton"),
   deleteDish: $("#deleteDish"),
   detailDialog: $("#detailDialog"),
   detailName: $("#detailName"),
@@ -144,6 +155,26 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => els.toast.classList.remove("show"), 2200);
 }
 
+function normalizeTag(tag) {
+  return tag.trim().replace(/\s+/g, " ").slice(0, 12);
+}
+
+function getAllCategories() {
+  const saved = Array.isArray(appSettings.categories) ? appSettings.categories : [];
+  const fromDishes = dishes.flatMap((dish) => (Array.isArray(dish.tags) ? dish.tags : []));
+  const unique = new Set([...saved, ...fromDishes].map(normalizeTag).filter(Boolean));
+  return ["全部", ...Array.from(unique)];
+}
+
+async function addCategory(tag) {
+  const normalized = normalizeTag(tag);
+  if (!normalized || normalized === "全部") return;
+  const categories = getAllCategories().filter((item) => item !== "全部");
+  if (!categories.includes(normalized)) {
+    await saveSettings({ categories: [...categories, normalized] });
+  }
+}
+
 function applyHeroImage() {
   const image = appSettings.heroImage || "";
   document.documentElement.style.setProperty("--hero-image", image ? `url("${image}")` : 'url("./assets/hero-food.jpg")');
@@ -151,6 +182,10 @@ function applyHeroImage() {
 
 function ratingText(rating) {
   return `${"★".repeat(rating)}${"☆".repeat(5 - rating)}`;
+}
+
+function ratingScoreText(rating) {
+  return `★ ${Number(rating || 0).toFixed(1)}`;
 }
 
 function initials(name) {
@@ -182,13 +217,16 @@ function dishCard(dish) {
   const body = document.createElement("div");
   body.className = "dish-card-body";
   body.innerHTML = `
+    <span class="dish-tag-badge"></span>
     <h3></h3>
     <p></p>
     <span class="rating-text"></span>
   `;
   body.querySelector("h3").textContent = dish.name;
-  body.querySelector("p").textContent = dish.ingredients || "还没有记录食材";
-  body.querySelector(".rating-text").textContent = ratingText(dish.rating);
+  const tags = Array.isArray(dish.tags) ? dish.tags.filter(Boolean) : [];
+  body.querySelector(".dish-tag-badge").textContent = tags[0] || "未分类";
+  body.querySelector("p").textContent = `食材：${dish.ingredients || "还没有记录食材"}`;
+  body.querySelector(".rating-text").textContent = ratingScoreText(dish.rating);
   button.append(body);
   button.addEventListener("click", () => openDetail(dish.id));
   return button;
@@ -213,12 +251,55 @@ function renderHome() {
   dishes.slice(0, 8).forEach((dish) => els.recentList.append(dishCard(dish)));
 }
 
+function renderCategories() {
+  els.categoryList.innerHTML = "";
+  const categories = getAllCategories();
+  if (!categories.includes(selectedCategory)) selectedCategory = "全部";
+
+  categories.forEach((category) => {
+    const count = category === "全部"
+      ? dishes.length
+      : dishes.filter((dish) => Array.isArray(dish.tags) && dish.tags.includes(category)).length;
+    const button = document.createElement("button");
+    button.className = "category-button";
+    button.type = "button";
+    button.classList.toggle("active", category === selectedCategory);
+    button.innerHTML = `
+      <span></span>
+      <small></small>
+    `;
+    button.querySelector("span").textContent = category;
+    button.querySelector("small").textContent = count;
+    button.addEventListener("click", () => {
+      selectedCategory = category;
+      renderLibrary();
+    });
+    els.categoryList.append(button);
+  });
+}
+
 function renderLibrary() {
   const query = els.searchInput.value.trim().toLowerCase();
-  const filtered = dishes.filter((dish) => {
-    const haystack = `${dish.name} ${dish.ingredients} ${dish.notes}`.toLowerCase();
-    return haystack.includes(query);
-  });
+  renderCategories();
+  els.sortRecentButton.classList.toggle("active", librarySortBy === "recent");
+  els.sortRatingButton.classList.toggle("active", librarySortBy.startsWith("rating"));
+  els.sortRatingButton.textContent = librarySortBy === "rating-asc" ? "评分升序" : "评分降序";
+
+  const filtered = dishes
+    .filter((dish) => {
+      const tags = Array.isArray(dish.tags) ? dish.tags : [];
+      return selectedCategory === "全部" || tags.includes(selectedCategory);
+    })
+    .filter((dish) => {
+      const tags = Array.isArray(dish.tags) ? dish.tags.join(" ") : "";
+      const haystack = `${dish.name} ${dish.ingredients} ${dish.notes} ${tags}`.toLowerCase();
+      return haystack.includes(query);
+    })
+    .sort((a, b) => {
+      if (librarySortBy === "rating-desc") return b.rating - a.rating || b.updatedAt - a.updatedAt;
+      if (librarySortBy === "rating-asc") return a.rating - b.rating || b.updatedAt - a.updatedAt;
+      return b.updatedAt - a.updatedAt;
+    });
 
   els.dishGrid.innerHTML = "";
   if (!filtered.length) {
@@ -286,6 +367,7 @@ function openDishForm(dish = null) {
   selectedDishId = dish?.id ?? null;
   currentRating = dish?.rating ?? 4;
   photoDataUrl = dish?.photo ?? "";
+  selectedDishTags = Array.isArray(dish?.tags) ? [...dish.tags] : [];
   els.dishFormTitle.textContent = dish ? "编辑菜品" : "添加菜品";
   els.dishId.value = dish?.id ?? "";
   els.nameInput.value = dish?.name ?? "";
@@ -294,6 +376,7 @@ function openDishForm(dish = null) {
   els.deleteDish.classList.toggle("hidden", !dish);
   updatePhotoPreview();
   renderRatingButtons();
+  renderTagButtons();
   els.dishDialog.showModal();
   window.setTimeout(() => els.nameInput.focus(), 60);
 }
@@ -323,6 +406,33 @@ function renderRatingButtons() {
     });
     els.ratingButtons.append(button);
   }
+}
+
+function renderTagButtons() {
+  els.tagButtons.innerHTML = "";
+  const categories = getAllCategories().filter((category) => category !== "全部");
+
+  if (!categories.length) {
+    const empty = document.createElement("p");
+    empty.className = "tag-empty";
+    empty.textContent = "还没有分类，可以先新增一个";
+    els.tagButtons.append(empty);
+    return;
+  }
+
+  categories.forEach((tag) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = tag;
+    button.classList.toggle("active", selectedDishTags.includes(tag));
+    button.addEventListener("click", () => {
+      selectedDishTags = selectedDishTags.includes(tag)
+        ? selectedDishTags.filter((item) => item !== tag)
+        : [...selectedDishTags, tag];
+      renderTagButtons();
+    });
+    els.tagButtons.append(button);
+  });
 }
 
 async function resizeImage(file) {
@@ -372,6 +482,7 @@ async function saveDish(event) {
     notes: els.notesInput.value.trim(),
     rating: currentRating,
     photo: photoDataUrl,
+    tags: [...selectedDishTags],
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -382,6 +493,10 @@ async function saveDish(event) {
   }
 
   await put(DISH_STORE, dish);
+  if (selectedDishTags.length) {
+    const categories = getAllCategories().filter((item) => item !== "全部");
+    await saveSettings({ categories });
+  }
   await loadState();
   renderAll();
   closeDialog(els.dishDialog);
@@ -602,6 +717,31 @@ function bindEvents() {
   $("#generateMenu").addEventListener("click", generateMenu);
   $("#settingsButton").addEventListener("click", () => els.settingsDialog.showModal());
   $("#exportData").addEventListener("click", exportData);
+  els.sortRecentButton.addEventListener("click", () => {
+    librarySortBy = "recent";
+    renderLibrary();
+  });
+  els.sortRatingButton.addEventListener("click", () => {
+    librarySortBy = librarySortBy === "rating-desc" ? "rating-asc" : "rating-desc";
+    renderLibrary();
+  });
+  els.addCategoryButton.addEventListener("click", async () => {
+    const tag = normalizeTag(els.newCategoryInput.value);
+    if (!tag) return;
+    await addCategory(tag);
+    selectedCategory = tag;
+    els.newCategoryInput.value = "";
+    renderLibrary();
+  });
+  els.addTagButton.addEventListener("click", async () => {
+    const tag = normalizeTag(els.tagInput.value);
+    if (!tag) return;
+    await addCategory(tag);
+    if (!selectedDishTags.includes(tag)) selectedDishTags = [...selectedDishTags, tag];
+    els.tagInput.value = "";
+    renderTagButtons();
+    renderLibrary();
+  });
   els.resetHeroImage.addEventListener("click", async () => {
     await saveSettings({ heroImage: "" });
     showToast("首页背景图已恢复默认");
