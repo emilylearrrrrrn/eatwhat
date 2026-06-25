@@ -467,6 +467,16 @@ svg {
   gap: 0;
 }
 
+.category-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 26px;
+  align-items: center;
+}
+
+.category-row.active {
+  background: rgba(255, 253, 249, 0.96);
+}
+
 .category-button {
   display: flex;
   align-items: center;
@@ -485,7 +495,7 @@ svg {
 
 .category-button.active {
   border-left-color: var(--primary);
-  background: rgba(255, 253, 249, 0.96);
+  background: transparent;
   color: var(--primary-dark);
   box-shadow: none;
 }
@@ -518,6 +528,25 @@ svg {
 .category-button.active small {
   background: rgba(255, 111, 26, 0.14);
   color: var(--primary-dark);
+}
+
+.category-delete {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(90, 52, 31, 0.08);
+  color: rgba(90, 52, 31, 0.58);
+  font-size: 1rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.category-delete:active {
+  background: rgba(200, 30, 30, 0.12);
+  color: var(--danger);
 }
 
 .category-add {

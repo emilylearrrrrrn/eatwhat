@@ -23,6 +23,9 @@ let selectedDishTags = [];
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+const on = (node, eventName, handler) => {
+  if (node) node.addEventListener(eventName, handler);
+};
 
 const els = {
   todayText: $("#todayText"),
@@ -188,6 +191,29 @@ async function addCategory(tag) {
   }
 }
 
+async function deleteCategory(category) {
+  if (!category || category === "全部") return;
+  const ok = window.confirm(`删除“${category}”分类？菜品不会删除，只会移除这个分类标签。`);
+  if (!ok) return;
+
+  const savedCategories = Array.isArray(appSettings.categories) ? appSettings.categories : [];
+  await saveSettings({ categories: savedCategories.filter((item) => item !== category) });
+
+  const changedDishes = dishes.filter((dish) => Array.isArray(dish.tags) && dish.tags.includes(category));
+  for (const dish of changedDishes) {
+    await put(DISH_STORE, {
+      ...dish,
+      tags: dish.tags.filter((tag) => tag !== category),
+      updatedAt: Date.now(),
+    });
+  }
+
+  if (selectedCategory === category) selectedCategory = "全部";
+  await loadState();
+  renderAll();
+  showToast(`已删除“${category}”分类`);
+}
+
 function applyHeroImage() {
   const image = appSettings.heroImage || "";
   document.documentElement.style.setProperty("--hero-image", image ? `url("${image}")` : 'url("./assets/hero-food.jpg")');
@@ -287,6 +313,7 @@ function renderHome() {
 }
 
 function renderCategories() {
+  if (!els.categoryList) return;
   els.categoryList.innerHTML = "";
   const categories = getAllCategories();
   if (!categories.includes(selectedCategory)) selectedCategory = "全部";
@@ -295,6 +322,9 @@ function renderCategories() {
     const count = category === "全部"
       ? dishes.length
       : dishes.filter((dish) => Array.isArray(dish.tags) && dish.tags.includes(category)).length;
+    const row = document.createElement("div");
+    row.className = "category-row";
+    row.classList.toggle("active", category === selectedCategory);
     const button = document.createElement("button");
     button.className = "category-button";
     button.type = "button";
@@ -309,16 +339,28 @@ function renderCategories() {
       selectedCategory = category;
       renderLibrary();
     });
-    els.categoryList.append(button);
+    row.append(button);
+    if (category !== "全部") {
+      const deleteButton = document.createElement("button");
+      deleteButton.className = "category-delete";
+      deleteButton.type = "button";
+      deleteButton.setAttribute("aria-label", `删除${category}分类`);
+      deleteButton.textContent = "×";
+      deleteButton.addEventListener("click", () => deleteCategory(category));
+      row.append(deleteButton);
+    }
+    els.categoryList.append(row);
   });
 }
 
 function renderLibrary() {
   const query = els.searchInput.value.trim().toLowerCase();
   renderCategories();
-  els.sortRecentButton.classList.toggle("active", librarySortBy === "recent");
-  els.sortRatingButton.classList.toggle("active", librarySortBy.startsWith("rating"));
-  els.sortRatingButton.textContent = librarySortBy === "rating-asc" ? "评分升序" : "评分降序";
+  els.sortRecentButton?.classList.toggle("active", librarySortBy === "recent");
+  els.sortRatingButton?.classList.toggle("active", librarySortBy.startsWith("rating"));
+  if (els.sortRatingButton) {
+    els.sortRatingButton.textContent = librarySortBy === "rating-asc" ? "评分升序" : "评分降序";
+  }
 
   const filtered = dishes
     .filter((dish) => {
@@ -450,25 +492,25 @@ function openDishForm(dish = null) {
 }
 
 function closeDialog(dialog) {
-  if (dialog.open) dialog.close();
+  if (dialog?.open) dialog.close();
 }
 
 function updatePhotoPreview() {
   els.photoPicker.classList.toggle("has-photo", Boolean(photoDataUrl));
-  els.photoAdjuster.classList.toggle("hidden", !photoDataUrl);
+  els.photoAdjuster?.classList.toggle("hidden", !photoDataUrl);
   els.photoPreview.src = photoDataUrl || "";
   applyPhotoCrop(els.photoPreview, photoCrop);
-  els.photoCropX.value = Math.round(photoCrop.x);
-  els.photoCropY.value = Math.round(photoCrop.y);
-  els.photoZoom.value = Math.round(photoCrop.zoom * 100);
+  if (els.photoCropX) els.photoCropX.value = Math.round(photoCrop.x);
+  if (els.photoCropY) els.photoCropY.value = Math.round(photoCrop.y);
+  if (els.photoZoom) els.photoZoom.value = Math.round(photoCrop.zoom * 100);
   els.photoHint.textContent = photoDataUrl ? "更换照片" : "选择照片";
 }
 
 function updatePhotoCropFromControls() {
   photoCrop = {
-    x: Number(els.photoCropX.value),
-    y: Number(els.photoCropY.value),
-    zoom: Number(els.photoZoom.value) / 100,
+    x: Number(els.photoCropX?.value ?? 50),
+    y: Number(els.photoCropY?.value ?? 50),
+    zoom: Number(els.photoZoom?.value ?? 100) / 100,
   };
   applyPhotoCrop(els.photoPreview, photoCrop);
 }
@@ -491,6 +533,7 @@ function renderRatingButtons() {
 }
 
 function renderTagButtons() {
+  if (!els.tagButtons) return;
   els.tagButtons.innerHTML = "";
   const categories = getAllCategories().filter((category) => category !== "全部");
 
@@ -614,14 +657,14 @@ function openDetail(id) {
   els.detailNotes.textContent = dish.notes || "还没有备注";
   els.detailPhoto.replaceWith(dishImage(dish, "detail-photo"));
   els.detailPhoto = $(".detail-photo");
-  els.detailPhotoButton.classList.toggle("has-photo", Boolean(dish.photo));
-  els.detailPhotoButton.disabled = !dish.photo;
+  els.detailPhotoButton?.classList.toggle("has-photo", Boolean(dish.photo));
+  if (els.detailPhotoButton) els.detailPhotoButton.disabled = !dish.photo;
   els.detailDialog.showModal();
 }
 
 function openOriginalPhoto() {
   const dish = dishes.find((item) => item.id === selectedDishId);
-  if (!dish?.photo) return;
+  if (!dish?.photo || !els.originalPhotoImage || !els.originalPhotoDialog) return;
   els.originalPhotoImage.src = dish.photo;
   els.originalPhotoImage.alt = dish.name;
   els.originalPhotoDialog.showModal();
@@ -712,7 +755,7 @@ function openMenuPicker(index) {
   selectedMenuIndex = index;
   selectedMenuDishIds = getMenuDishIds(currentMenu[index]);
   menuPickerCategory = "全部";
-  els.menuSearchInput.value = "";
+  if (els.menuSearchInput) els.menuSearchInput.value = "";
   els.menuPickerTitle.textContent = `安排${WEEK_DAYS[index]}`;
   renderMenuPickerCategories();
   renderMenuPickerOptions();
@@ -720,6 +763,7 @@ function openMenuPicker(index) {
 }
 
 function renderMenuPickerCategories() {
+  if (!els.menuCategoryList) return;
   els.menuCategoryList.innerHTML = "";
   const categories = getAllCategories();
   if (!categories.includes(menuPickerCategory)) menuPickerCategory = "全部";
@@ -740,8 +784,9 @@ function renderMenuPickerCategories() {
 }
 
 function renderMenuPickerOptions() {
+  if (!els.menuPickerList) return;
   els.menuPickerList.innerHTML = "";
-  const query = els.menuSearchInput.value.trim().toLowerCase();
+  const query = (els.menuSearchInput?.value ?? "").trim().toLowerCase();
   const filtered = dishes.filter((dish) => {
     const tags = Array.isArray(dish.tags) ? dish.tags : [];
     const categoryMatch = menuPickerCategory === "全部" || tags.includes(menuPickerCategory);
@@ -857,62 +902,62 @@ async function importData(file) {
 }
 
 function bindEvents() {
-  $$(".tab[data-tab]").forEach((tab) => tab.addEventListener("click", () => setActiveTab(tab.dataset.tab)));
-  $$("[data-tab-target]").forEach((button) => button.addEventListener("click", () => setActiveTab(button.dataset.tabTarget)));
-  $("#addTab").addEventListener("click", () => openDishForm());
-  $("#openAddDish").addEventListener("click", () => openDishForm());
-  $("#randomButton").addEventListener("click", openPick);
-  $("#pickAgain").addEventListener("click", openPick);
-  $("#generateMenu").addEventListener("click", generateMenu);
-  $("#settingsButton").addEventListener("click", () => els.settingsDialog.showModal());
-  $("#exportData").addEventListener("click", exportData);
-  els.sortRecentButton.addEventListener("click", () => {
+  $$(".tab[data-tab]").forEach((tab) => on(tab, "click", () => setActiveTab(tab.dataset.tab)));
+  $$("[data-tab-target]").forEach((button) => on(button, "click", () => setActiveTab(button.dataset.tabTarget)));
+  on($("#addTab"), "click", () => openDishForm());
+  on($("#openAddDish"), "click", () => openDishForm());
+  on($("#randomButton"), "click", openPick);
+  on($("#pickAgain"), "click", openPick);
+  on($("#generateMenu"), "click", generateMenu);
+  on($("#settingsButton"), "click", () => els.settingsDialog.showModal());
+  on($("#exportData"), "click", exportData);
+  on(els.sortRecentButton, "click", () => {
     librarySortBy = "recent";
     renderLibrary();
   });
-  els.sortRatingButton.addEventListener("click", () => {
+  on(els.sortRatingButton, "click", () => {
     librarySortBy = librarySortBy === "rating-desc" ? "rating-asc" : "rating-desc";
     renderLibrary();
   });
-  els.addCategoryButton.addEventListener("click", async () => {
-    const tag = normalizeTag(els.newCategoryInput.value);
+  on(els.addCategoryButton, "click", async () => {
+    const tag = normalizeTag(els.newCategoryInput?.value ?? "");
     if (!tag) return;
     await addCategory(tag);
     selectedCategory = tag;
-    els.newCategoryInput.value = "";
+    if (els.newCategoryInput) els.newCategoryInput.value = "";
     renderLibrary();
   });
-  els.addTagButton.addEventListener("click", async () => {
-    const tag = normalizeTag(els.tagInput.value);
+  on(els.addTagButton, "click", async () => {
+    const tag = normalizeTag(els.tagInput?.value ?? "");
     if (!tag) return;
     await addCategory(tag);
     if (!selectedDishTags.includes(tag)) selectedDishTags = [...selectedDishTags, tag];
-    els.tagInput.value = "";
+    if (els.tagInput) els.tagInput.value = "";
     renderTagButtons();
     renderLibrary();
   });
-  els.resetHeroImage.addEventListener("click", async () => {
+  on(els.resetHeroImage, "click", async () => {
     await saveSettings({ heroImage: "" });
     showToast("首页背景图已恢复默认");
   });
-  els.menuSearchInput.addEventListener("input", renderMenuPickerOptions);
-  els.saveMenuDay.addEventListener("click", saveMenuDay);
-  els.clearMenuDay.addEventListener("click", clearMenuDay);
+  on(els.menuSearchInput, "input", renderMenuPickerOptions);
+  on(els.saveMenuDay, "click", saveMenuDay);
+  on(els.clearMenuDay, "click", clearMenuDay);
 
-  els.searchInput.addEventListener("input", renderLibrary);
-  els.dishForm.addEventListener("submit", saveDish);
-  els.deleteDish.addEventListener("click", deleteDish);
+  on(els.searchInput, "input", renderLibrary);
+  on(els.dishForm, "submit", saveDish);
+  on(els.deleteDish, "click", deleteDish);
   [els.photoCropX, els.photoCropY, els.photoZoom].forEach((input) => {
-    input.addEventListener("input", updatePhotoCropFromControls);
+    on(input, "input", updatePhotoCropFromControls);
   });
-  els.detailPhotoButton.addEventListener("click", openOriginalPhoto);
-  els.editFromDetail.addEventListener("click", () => {
+  on(els.detailPhotoButton, "click", openOriginalPhoto);
+  on(els.editFromDetail, "click", () => {
     const dish = dishes.find((item) => item.id === selectedDishId);
     closeDialog(els.detailDialog);
     openDishForm(dish);
   });
 
-  els.photoInput.addEventListener("change", async (event) => {
+  on(els.photoInput, "change", async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
     photoDataUrl = await resizeImage(file);
@@ -921,7 +966,7 @@ function bindEvents() {
     event.target.value = "";
   });
 
-  els.importData.addEventListener("change", async (event) => {
+  on(els.importData, "change", async (event) => {
     try {
       await importData(event.target.files?.[0]);
       closeDialog(els.settingsDialog);
@@ -932,7 +977,7 @@ function bindEvents() {
     }
   });
 
-  els.heroImageInput.addEventListener("change", async (event) => {
+  on(els.heroImageInput, "change", async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
     const image = await resizeImage(file);
@@ -941,16 +986,16 @@ function bindEvents() {
     event.target.value = "";
   });
 
-  $$("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => closeDialog(els.dishDialog)));
-  $$("[data-close-detail]").forEach((button) => button.addEventListener("click", () => closeDialog(els.detailDialog)));
-  $$("[data-close-pick]").forEach((button) => button.addEventListener("click", () => closeDialog(els.pickDialog)));
-  $$("[data-close-settings]").forEach((button) => button.addEventListener("click", () => closeDialog(els.settingsDialog)));
-  $$("[data-close-menu-picker]").forEach((button) => button.addEventListener("click", () => {
+  $$("[data-close-dialog]").forEach((button) => on(button, "click", () => closeDialog(els.dishDialog)));
+  $$("[data-close-detail]").forEach((button) => on(button, "click", () => closeDialog(els.detailDialog)));
+  $$("[data-close-pick]").forEach((button) => on(button, "click", () => closeDialog(els.pickDialog)));
+  $$("[data-close-settings]").forEach((button) => on(button, "click", () => closeDialog(els.settingsDialog)));
+  $$("[data-close-menu-picker]").forEach((button) => on(button, "click", () => {
     selectedMenuIndex = null;
     selectedMenuDishIds = [];
     closeDialog(els.menuPickerDialog);
   }));
-  $$("[data-close-original-photo]").forEach((button) => button.addEventListener("click", () => closeDialog(els.originalPhotoDialog)));
+  $$("[data-close-original-photo]").forEach((button) => on(button, "click", () => closeDialog(els.originalPhotoDialog)));
 }
 
 async function registerServiceWorker() {
