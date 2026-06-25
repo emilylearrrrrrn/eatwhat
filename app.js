@@ -522,14 +522,12 @@ function renderMenu() {
     const dishList = row.querySelector(".week-dishes");
     if (menuDishes.length) {
       menuDishes.forEach((dish) => {
-        const item = document.createElement("button");
+        const item = document.createElement("span");
         item.className = "week-dish-chip";
-        item.type = "button";
         item.append(dishImage(dish, "week-dish-photo", { thumbnail: true }));
         const name = document.createElement("span");
         name.textContent = dish.name;
         item.append(name);
-        item.addEventListener("click", () => openDetail(dish.id));
         dishList.append(item);
       });
     } else {

@@ -767,6 +767,8 @@ svg {
   color: var(--brown);
   font-size: 0.78rem;
   font-weight: 820;
+  cursor: default;
+  pointer-events: none;
 }
 
 .week-dish-chip span {
