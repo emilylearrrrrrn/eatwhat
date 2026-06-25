@@ -469,12 +469,45 @@ svg {
 
 .category-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 26px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
+}
+
+.category-row.managing {
+  grid-template-columns: minmax(0, 1fr) 24px 24px;
+  gap: 4px;
+  padding-right: 4px;
 }
 
 .category-row.active {
   background: rgba(255, 253, 249, 0.96);
+}
+
+.category-row.dragging {
+  opacity: 0.72;
+  transform: scale(0.98);
+}
+
+.category-manage-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  color: var(--brown-soft);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.category-manage-toolbar button {
+  min-height: 28px;
+  border: 1px solid rgba(255, 111, 26, 0.38);
+  border-radius: 999px;
+  padding: 0 10px;
+  background: rgba(255, 253, 249, 0.95);
+  color: var(--primary-dark);
+  font-size: 0.72rem;
+  font-weight: 850;
 }
 
 .category-button {
@@ -542,6 +575,23 @@ svg {
   font-size: 1rem;
   font-weight: 850;
   line-height: 1;
+}
+
+.category-drag-handle {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(90, 52, 31, 0.08);
+  color: rgba(90, 52, 31, 0.58);
+  font-size: 0.8rem;
+  font-weight: 900;
+  line-height: 1;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .category-delete:active {

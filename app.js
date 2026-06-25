@@ -18,6 +18,10 @@ let selectedMenuIndex = null;
 let selectedMenuDishIds = [];
 let menuPickerCategory = "全部";
 let selectedCategory = "全部";
+let isCategoryManaging = false;
+let categoryPressTimer = null;
+let draggedCategory = null;
+let draggedCategoryRow = null;
 let librarySortBy = "recent";
 let selectedDishTags = [];
 
@@ -182,6 +186,27 @@ function getAllCategories() {
   return ["全部", ...Array.from(unique)];
 }
 
+function startCategoryManage() {
+  isCategoryManaging = true;
+  renderCategories();
+  showToast("已进入分类管理");
+}
+
+function stopCategoryManage() {
+  isCategoryManaging = false;
+  draggedCategory = null;
+  renderCategories();
+}
+
+async function saveCategoryOrderFromDom() {
+  if (!els.categoryList) return;
+  const categories = Array.from(els.categoryList.querySelectorAll(".category-row"))
+    .map((row) => row.dataset.category)
+    .filter((category) => category && category !== "全部");
+  await saveSettings({ categories });
+  renderAll();
+}
+
 async function addCategory(tag) {
   const normalized = normalizeTag(tag);
   if (!normalized || normalized === "全部") return;
@@ -318,6 +343,17 @@ function renderCategories() {
   const categories = getAllCategories();
   if (!categories.includes(selectedCategory)) selectedCategory = "全部";
 
+  if (isCategoryManaging) {
+    const toolbar = document.createElement("div");
+    toolbar.className = "category-manage-toolbar";
+    toolbar.innerHTML = `
+      <span>管理分类</span>
+      <button type="button">完成</button>
+    `;
+    toolbar.querySelector("button").addEventListener("click", stopCategoryManage);
+    els.categoryList.append(toolbar);
+  }
+
   categories.forEach((category) => {
     const count = category === "全部"
       ? dishes.length
@@ -325,6 +361,9 @@ function renderCategories() {
     const row = document.createElement("div");
     row.className = "category-row";
     row.classList.toggle("active", category === selectedCategory);
+    row.classList.toggle("managing", isCategoryManaging);
+    row.classList.toggle("dragging", category === draggedCategory);
+    row.dataset.category = category;
     const button = document.createElement("button");
     button.className = "category-button";
     button.type = "button";
@@ -336,11 +375,52 @@ function renderCategories() {
     button.querySelector("span").textContent = category;
     button.querySelector("small").textContent = count;
     button.addEventListener("click", () => {
+      if (isCategoryManaging) return;
       selectedCategory = category;
       renderLibrary();
     });
+    button.addEventListener("pointerdown", () => {
+      window.clearTimeout(categoryPressTimer);
+      categoryPressTimer = window.setTimeout(startCategoryManage, 520);
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach((eventName) => {
+      button.addEventListener(eventName, () => window.clearTimeout(categoryPressTimer));
+    });
     row.append(button);
-    if (category !== "全部") {
+
+    if (isCategoryManaging && category !== "全部") {
+      const handle = document.createElement("button");
+      handle.className = "category-drag-handle";
+      handle.type = "button";
+      handle.setAttribute("aria-label", `拖拽${category}排序`);
+      handle.textContent = "☰";
+      handle.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        draggedCategory = category;
+        draggedCategoryRow = row;
+        handle.setPointerCapture?.(event.pointerId);
+        row.classList.add("dragging");
+      });
+      handle.addEventListener("pointermove", (event) => {
+        if (draggedCategory !== category || !draggedCategoryRow) return;
+        const targetRow = document.elementFromPoint(event.clientX, event.clientY)?.closest(".category-row");
+        const target = targetRow?.dataset.category;
+        if (target && target !== draggedCategory && target !== "全部") {
+          const rect = targetRow.getBoundingClientRect();
+          const before = event.clientY < rect.top + rect.height / 2;
+          els.categoryList.insertBefore(draggedCategoryRow, before ? targetRow : targetRow.nextSibling);
+        }
+      });
+      ["pointerup", "pointercancel"].forEach((eventName) => {
+        handle.addEventListener(eventName, async () => {
+          draggedCategory = null;
+          draggedCategoryRow = null;
+          row.classList.remove("dragging");
+          await saveCategoryOrderFromDom();
+        });
+      });
+      row.append(handle);
+
       const deleteButton = document.createElement("button");
       deleteButton.className = "category-delete";
       deleteButton.type = "button";
