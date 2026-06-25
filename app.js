@@ -264,10 +264,11 @@ function placeholder(name, className = "") {
 }
 
 function getPhotoCrop(dish = {}) {
+  const source = dish || {};
   return {
-    x: Number.isFinite(Number(dish.photoX)) ? Number(dish.photoX) : 50,
-    y: Number.isFinite(Number(dish.photoY)) ? Number(dish.photoY) : 50,
-    zoom: Number.isFinite(Number(dish.photoZoom)) ? Number(dish.photoZoom) : 1,
+    x: Number.isFinite(Number(source.photoX)) ? Number(source.photoX) : 50,
+    y: Number.isFinite(Number(source.photoY)) ? Number(source.photoY) : 50,
+    zoom: Number.isFinite(Number(source.photoZoom)) ? Number(source.photoZoom) : 1,
   };
 }
 
